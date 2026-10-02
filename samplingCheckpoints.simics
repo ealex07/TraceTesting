@@ -1,0 +1,60 @@
+decl {
+ param config : string = "CL-BEFORERUN3"
+ param path : string = "sampling"
+ param interval : int = 2000000000
+ param warming : int = 1000000
+ param sampling : int = 100000 
+ param num_cpus : int = 6
+ param start : int = 0
+}
+bp.magic.break 1
+if $start == 0{
+	read-configuration $config+.ckpt
+	$num = 0
+} else {
+	read-configuration $config+_+$start+.ckpt
+	$num = $start
+}
+$size = $warming+$sampling
+set-time-quantum 10000
+enable-multicore-accelerator
+script-branch "test script branch" {
+    run 
+	if $num == 0{
+    	bp.wait-for-breakpoint 1
+	}
+    #stop
+    #bp.log.wait-for "Hello"
+    #run
+    while 1{
+	enable-vmp
+	enable-multicore-accelerator
+    	echo $num
+    	$current = $num-$start
+    	#$warm = ($num-$start)*2
+    	#$sample = ($num-$start)*2+1
+    	board.mb.cpu0.core[0][0].bp-wait-for-cycle $interval#bp.cycle.wait-for $interval#run $interval "cycles"#
+		disable-vmp
+    	new-macsim-tool -connect-all -trace-instructions numCPUs = $num_cpus file = $path+/solo/+$num warm = $size sample = 0
+    	bp.log.wait-for "Warming"
+    	@run_command("trace"+str(simenv.current)+".delete")#@run_command("trace"+str(simenv.warm)+".delete")
+    	#new-macsim-tool -connect-all -trace-instructions numCPUs = $num_cpus file = $path+/detail/+$num warm = 0 sample = $sampling
+    	#bp.log.wait-for "Sampling"
+    	#@run_command("trace"+str(simenv.sample)+".delete")
+    	$num += 1
+		$remainder = `simenv.num % 100`
+		if $remainder == 0 {
+			stop
+			echo "Checkpoint $num"
+    		write-configuration $config+_+$num+.ckpt
+			run
+		}
+    }
+    
+}
+
+
+
+
+
+
